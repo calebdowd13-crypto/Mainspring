@@ -61,7 +61,7 @@ function AuthScreen() {
       <div style={{ height: 4, background: "#2C1810" }} />
       <div style={{ height: 1, background: "#8B6914" }} />
       <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div style={{ width: 400 }}>
+        <div style={{ width: 400, padding: "0 24px" }}>
           <div style={{ textAlign: "center", marginBottom: 40 }}>
             <h1 style={{ margin: 0, fontSize: "36px", fontWeight: 400, letterSpacing: "0.18em", textTransform: "uppercase", color: "#2C1810", fontStyle: "italic" }}>Mainspring</h1>
             <div style={{ fontSize: "9px", color: "#8B6914", letterSpacing: "0.25em", textTransform: "uppercase", marginTop: 8 }}>Watch Portfolio & Market Intelligence</div>
@@ -99,12 +99,11 @@ export default function App() {
   const [tab, setTab] = useState("portfolio");
   const [portfolio, setPortfolio] = useState([]);
   const [wishlist, setWishlist] = useState([]);
-  const [realListings, setRealListings] = useState([]);
+  const [allListings, setAllListings] = useState([]);
   const [showAddWatch, setShowAddWatch] = useState(false);
   const [showAddWishlist, setShowAddWishlist] = useState(false);
   const [newWatch, setNewWatch] = useState({ brand: "", model: "", ref: "", year: "", purchase_price: "", current_price: "", condition: "Excellent", papers: false });
   const [newWish, setNewWish] = useState({ brand: "", model: "", ref: "", max_price: "", alerts: true });
-  const [listingFilter, setListingFilter] = useState("all");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -122,7 +121,7 @@ export default function App() {
     if (session) {
       fetchPortfolio();
       fetchWishlist();
-      fetchRealListings();
+      fetchAllListings();
     }
   }, [session]);
 
@@ -136,13 +135,13 @@ export default function App() {
     if (data) setWishlist(data);
   }
 
-  async function fetchRealListings() {
+  async function fetchAllListings() {
     const { data } = await supabase
       .from("listings")
       .select("*")
       .order("posted_at", { ascending: false })
-      .limit(50);
-    if (data) setRealListings(data);
+      .limit(200);
+    if (data) setAllListings(data);
   }
 
   async function addWatch() {
@@ -157,6 +156,11 @@ export default function App() {
     if (!error) { fetchWishlist(); setNewWish({ brand: "", model: "", ref: "", max_price: "", alerts: true }); setShowAddWishlist(false); }
   }
 
+  async function removeWishlist(id) {
+    await supabase.from("wishlist").delete().eq("id", id);
+    fetchWishlist();
+  }
+
   async function signOut() {
     await supabase.auth.signOut();
   }
@@ -165,28 +169,30 @@ export default function App() {
   const totalCurrent = portfolio.reduce((s, w) => s + Number(w.current_price), 0);
   const totalGain = totalCurrent - totalPurchase;
   const totalGainPct = totalPurchase > 0 ? ((totalGain / totalPurchase) * 100).toFixed(1) : "0.0";
-  const allListings = realListings.length > 0 ? realListings : [];
-  const filteredListings = listingFilter === "all" ? allListings : allListings.filter(l => l.source === listingFilter);
-  const matchedListings = allListings.filter(l => wishlist.some(w => l.title.toLowerCase().includes(w.model.toLowerCase())));
+
+  // Match listings against wishlist
+  const matchedListings = allListings.filter(listing =>
+    wishlist.some(w => listing.title.toLowerCase().includes(w.model.toLowerCase()))
+  );
 
   const tabs = [
     { id: "portfolio", label: "Portfolio" },
     { id: "wishlist", label: "Wishlist" },
-    { id: "listings", label: "Live Listings" },
-    { id: "alerts", label: `Alerts${matchedListings.length > 0 ? ` (${matchedListings.length})` : ""}` },
+    { id: "matches", label: `Matches${matchedListings.length > 0 ? ` (${matchedListings.length})` : ""}` },
   ];
 
   if (loading) return <div style={{ minHeight: "100vh", background: "#F5F0E8", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Georgia', serif", color: "#A8906A", fontStyle: "italic" }}>Loading…</div>;
   if (!session) return <AuthScreen />;
 
-  return (<div style={{ minHeight: "100vh", width: "100vw", background: "#F5F0E8", color: "#2C1810", fontFamily: "'Georgia', 'Times New Roman', serif", overflowX: "hidden" }}>
+  return (
+    <div style={{ minHeight: "100vh", width: "100%", background: "#F5F0E8", color: "#2C1810", fontFamily: "'Georgia', 'Times New Roman', serif" }}>
       <div style={{ height: 4, background: "#2C1810" }} />
       <div style={{ height: 1, background: "#8B6914" }} />
 
-\<div style={{ background: "#FAF7F2", borderBottom: "1px solid #D4C4A8" }}>
-        <div style={{ maxWidth: 980, margin: "0 auto", width: "100%", boxSizing: "border-box", padding: "28px 24px 0" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
-            <div style={{ display: "flex", alignItems: "baseline", gap: 14 }}>
+      <div style={{ background: "#FAF7F2", borderBottom: "1px solid #D4C4A8" }}>
+        <div style={{ maxWidth: 980, margin: "0 auto", padding: "28px 24px 0", boxSizing: "border-box" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 14, flexWrap: "wrap" }}>
               <h1 style={{ margin: 0, fontSize: "32px", fontWeight: 400, letterSpacing: "0.18em", textTransform: "uppercase", color: "#2C1810", fontStyle: "italic" }}>Mainspring</h1>
               <span style={{ fontSize: "9px", color: "#8B6914", letterSpacing: "0.25em", textTransform: "uppercase", borderLeft: "1px solid #C8B89A", paddingLeft: 14 }}>Watch Portfolio & Market Intelligence</span>
             </div>
@@ -203,7 +209,7 @@ export default function App() {
         </div>
       </div>
 
-      <div style={{ maxWidth: 980, margin: "0 auto", padding: "36px 24px", width: "100%", boxSizing: "border-box" }}>
+      <div style={{ maxWidth: 980, margin: "0 auto", padding: "36px 24px", boxSizing: "border-box" }}>
 
         {tab === "portfolio" && (
           <div>
@@ -270,29 +276,34 @@ export default function App() {
             <p style={{ color: "#7A6652", fontSize: "13px", marginTop: 0, marginBottom: 24, fontStyle: "italic", borderBottom: "1px solid #D4C4A8", paddingBottom: 16 }}>
               Add the references you're hunting. Mainspring monitors Reddit WatchExchange continuously and alerts you the moment a match appears.
             </p>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 140px 140px", gap: 16, padding: "8px 20px", borderTop: "1px solid #2C1810", borderBottom: "1px solid #D4C4A8", marginBottom: 2 }}>
-              {["Reference", "Max Budget", "Live Matches"].map(h => (
-                <div key={h} style={{ fontSize: "9px", color: "#8B6914", letterSpacing: "0.2em", textTransform: "uppercase" }}>{h}</div>
-              ))}
-            </div>
 
             {wishlist.length === 0 && <div style={{ color: "#A8906A", fontStyle: "italic", fontSize: "14px", padding: "40px 20px" }}>No watches on your wishlist yet.</div>}
 
-            {wishlist.map((item, i) => {
-              const matches = allListings.filter(l => l.title.toLowerCase().includes(item.model.toLowerCase()));
-              return (
-                <div key={item.id} style={{ background: i % 2 === 0 ? "#FAF7F2" : "#F5F0E8", borderBottom: "1px solid #E8DFD0", padding: "16px 20px", display: "grid", gridTemplateColumns: "1fr 140px 140px", gap: 16, alignItems: "center" }}>
-                  <div>
-                    <div style={{ fontSize: "14px", color: "#2C1810", marginBottom: 3 }}>{item.brand} {item.model}</div>
-                    <div style={{ fontSize: "10px", color: "#A8906A", fontStyle: "italic" }}>Ref. {item.ref}</div>
-                  </div>
-                  <div style={{ fontSize: "14px", color: "#5A4A3A" }}>{formatCurrency(item.max_price)}</div>
-                  <div style={{ fontSize: "14px", color: matches.length > 0 ? "#1E6B3C" : "#A8906A", fontStyle: matches.length > 0 ? "normal" : "italic" }}>
-                    {matches.length > 0 ? `${matches.length} listing${matches.length !== 1 ? "s" : ""} found` : "Monitoring…"}
-                  </div>
+            {wishlist.length > 0 && (
+              <>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 140px 140px 40px", gap: 16, padding: "8px 20px", borderTop: "1px solid #2C1810", borderBottom: "1px solid #D4C4A8", marginBottom: 2 }}>
+                  {["Reference", "Max Budget", "Live Matches", ""].map(h => (
+                    <div key={h} style={{ fontSize: "9px", color: "#8B6914", letterSpacing: "0.2em", textTransform: "uppercase" }}>{h}</div>
+                  ))}
                 </div>
-              );
-            })}
+                {wishlist.map((item, i) => {
+                  const matches = allListings.filter(l => l.title.toLowerCase().includes(item.model.toLowerCase()));
+                  return (
+                    <div key={item.id} style={{ background: i % 2 === 0 ? "#FAF7F2" : "#F5F0E8", borderBottom: "1px solid #E8DFD0", padding: "16px 20px", display: "grid", gridTemplateColumns: "1fr 140px 140px 40px", gap: 16, alignItems: "center" }}>
+                      <div>
+                        <div style={{ fontSize: "14px", color: "#2C1810", marginBottom: 3 }}>{item.brand} {item.model}</div>
+                        <div style={{ fontSize: "10px", color: "#A8906A", fontStyle: "italic" }}>Ref. {item.ref} · Max {formatCurrency(item.max_price)}</div>
+                      </div>
+                      <div style={{ fontSize: "14px", color: "#5A4A3A" }}>{formatCurrency(item.max_price)}</div>
+                      <div style={{ fontSize: "14px", color: matches.length > 0 ? "#1E6B3C" : "#A8906A", fontStyle: matches.length > 0 ? "normal" : "italic" }}>
+                        {matches.length > 0 ? `${matches.length} found` : "Monitoring…"}
+                      </div>
+                      <button onClick={() => removeWishlist(item.id)} style={{ background: "none", border: "none", color: "#C8B89A", cursor: "pointer", fontSize: "16px", padding: 0 }}>×</button>
+                    </div>
+                  );
+                })}
+              </>
+            )}
 
             <div style={{ marginTop: 20 }}>
               <button onClick={() => setShowAddWishlist(!showAddWishlist)} style={btnOutlineGold}>+ Add to Wishlist</button>
@@ -315,77 +326,58 @@ export default function App() {
           </div>
         )}
 
-        {tab === "listings" && (
+        {tab === "matches" && (
           <div>
-            <div style={{ display: "flex", gap: 8, marginBottom: 24 }}>
-              {[["all", "All Sources"], ["reddit", "r/WatchExchange"]].map(([val, label]) => (
-                <button key={val} onClick={() => setListingFilter(val)} style={{ background: listingFilter === val ? "#2C1810" : "none", border: "1px solid " + (listingFilter === val ? "#2C1810" : "#C8B89A"), color: listingFilter === val ? "#FAF7F2" : "#7A6652", padding: "7px 18px", cursor: "pointer", fontSize: "10px", letterSpacing: "0.12em", textTransform: "uppercase", fontFamily: "'Georgia', serif", borderRadius: "2px" }}>{label}</button>
-              ))}
-            </div>
-            {filteredListings.length === 0 && (
-              <div style={{ color: "#A8906A", fontStyle: "italic", fontSize: "14px", padding: "40px 20px" }}>No listings yet.</div>
-            )}
-            <div style={{ borderTop: filteredListings.length > 0 ? "1px solid #2C1810" : "none" }}>
-              {filteredListings.map((listing, i) => (
-                <div key={listing.id} style={{ background: i % 2 === 0 ? "#FAF7F2" : "#F5F0E8", borderBottom: "1px solid #E8DFD0", padding: "14px 20px", display: "grid", gridTemplateColumns: "auto 1fr 120px 80px", gap: 16, alignItems: "center" }}>
-                  <SourceBadge source={listing.source} />
-                  <div>
-                    <div style={{ fontSize: "14px", color: "#2C1810", marginBottom: 3 }}>{listing.title}</div>
-                    <div style={{ fontSize: "10px", color: "#A8906A", fontStyle: "italic" }}>u/{listing.seller} · {new Date(listing.posted_at).toLocaleDateString()}</div>
-                  </div>
-                  <div style={{ fontSize: "15px", color: "#2C1810", fontStyle: "italic" }}>
-                    {listing.price ? formatCurrency(listing.price) : "See listing"}
-                  </div>
-                  <a href={listing.url} target="_blank" rel="noopener noreferrer" style={{ background: "none", border: "1px solid #C8B89A", color: "#7A6652", padding: "5px 12px", fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", textDecoration: "none", borderRadius: "2px", fontFamily: "'Georgia', serif", textAlign: "center" }}>View →</a>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {tab === "alerts" && (
-          <div>
-            <p style={{ color: "#7A6652", fontSize: "13px", marginTop: 0, marginBottom: 24, fontStyle: "italic", borderBottom: "1px solid #D4C4A8", paddingBottom: 16 }}>
-              Live listings matching your wishlist. Pieces highlighted in green are within your stated budget.
-            </p>
-            {matchedListings.length === 0 ? (
-              <div style={{ color: "#A8906A", fontSize: "14px", padding: "60px 0", textAlign: "center", fontStyle: "italic" }}>No matches yet. Add watches to your wishlist to begin monitoring.</div>
+            {wishlist.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "60px 20px" }}>
+                <div style={{ fontSize: "14px", color: "#A8906A", fontStyle: "italic", marginBottom: 16 }}>Add watches to your wishlist to see matching listings.</div>
+                <button onClick={() => setTab("wishlist")} style={btnOutlineGold}>Go to Wishlist →</button>
+              </div>
+            ) : matchedListings.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "60px 20px" }}>
+                <div style={{ fontSize: "14px", color: "#A8906A", fontStyle: "italic" }}>No matches found yet. Check back soon — listings refresh hourly.</div>
+              </div>
             ) : (
-              <div style={{ borderTop: "1px solid #2C1810" }}>
-                {matchedListings.map((listing, i) => {
-                  const wishItem = wishlist.find(w => listing.title.toLowerCase().includes(w.model.toLowerCase()));
-                  const underBudget = wishItem && listing.price && listing.price <= wishItem.max_price;
-                  return (
-                    <div key={listing.id} style={{ background: underBudget ? "#EEF7F0" : (i % 2 === 0 ? "#FAF7F2" : "#F5F0E8"), borderBottom: "1px solid #E8DFD0", borderLeft: underBudget ? "3px solid #1E6B3C" : "3px solid transparent", padding: "14px 20px", display: "grid", gridTemplateColumns: "auto 1fr 140px 100px", gap: 16, alignItems: "center" }}>
-                      <SourceBadge source={listing.source} />
-                      <div>
-                        <div style={{ fontSize: "14px", color: "#2C1810", marginBottom: 3 }}>{listing.title}</div>
-                        <div style={{ fontSize: "10px", color: "#A8906A", fontStyle: "italic" }}>
-                          u/{listing.seller} · {new Date(listing.posted_at).toLocaleDateString()}
-                          {wishItem && listing.price && (
-                            <span style={{ color: underBudget ? "#1E6B3C" : "#922B21", marginLeft: 10 }}>
-                              {underBudget ? `✓ Within budget (max ${formatCurrency(wishItem.max_price)})` : `✗ Over budget (max ${formatCurrency(wishItem.max_price)})`}
-                            </span>
-                          )}
+              <div>
+                <p style={{ color: "#7A6652", fontSize: "13px", marginTop: 0, marginBottom: 24, fontStyle: "italic", borderBottom: "1px solid #D4C4A8", paddingBottom: 16 }}>
+                  {matchedListings.length} listing{matchedListings.length !== 1 ? "s" : ""} matching your wishlist. Green indicates within budget.
+                </p>
+                <div style={{ borderTop: "1px solid #2C1810" }}>
+                  {matchedListings.map((listing, i) => {
+                    const wishItem = wishlist.find(w => listing.title.toLowerCase().includes(w.model.toLowerCase()));
+                    const underBudget = wishItem && listing.price && listing.price <= wishItem.max_price;
+                    return (
+                      <div key={listing.id} style={{ background: underBudget ? "#EEF7F0" : (i % 2 === 0 ? "#FAF7F2" : "#F5F0E8"), borderBottom: "1px solid #E8DFD0", borderLeft: underBudget ? "3px solid #1E6B3C" : "3px solid transparent", padding: "14px 20px", display: "grid", gridTemplateColumns: "auto 1fr 140px 100px", gap: 16, alignItems: "center" }}>
+                        <SourceBadge source={listing.source} />
+                        <div>
+                          <div style={{ fontSize: "14px", color: "#2C1810", marginBottom: 3 }}>{listing.title}</div>
+                          <div style={{ fontSize: "10px", color: "#A8906A", fontStyle: "italic" }}>
+                            u/{listing.seller} · {new Date(listing.posted_at).toLocaleDateString()}
+                            {wishItem && listing.price && (
+                              <span style={{ color: underBudget ? "#1E6B3C" : "#922B21", marginLeft: 10 }}>
+                                {underBudget ? `✓ Within budget (max ${formatCurrency(wishItem.max_price)})` : `✗ Over budget (max ${formatCurrency(wishItem.max_price)})`}
+                              </span>
+                            )}
+                          </div>
                         </div>
+                        <div style={{ fontSize: "15px", color: underBudget ? "#1E6B3C" : "#2C1810", fontStyle: "italic", fontWeight: underBudget ? 600 : 400 }}>
+                          {listing.price ? formatCurrency(listing.price) : "See listing"}
+                        </div>
+                        <a href={listing.url} target="_blank" rel="noopener noreferrer" style={{ background: underBudget ? "#1E6B3C" : "none", border: "1px solid " + (underBudget ? "#1E6B3C" : "#C8B89A"), color: underBudget ? "#FAF7F2" : "#7A6652", padding: "6px 14px", fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", textDecoration: "none", borderRadius: "2px", fontFamily: "'Georgia', serif", textAlign: "center", fontWeight: underBudget ? 700 : 400 }}>View →</a>
                       </div>
-                      <div style={{ fontSize: "15px", color: underBudget ? "#1E6B3C" : "#2C1810", fontStyle: "italic", fontWeight: underBudget ? 600 : 400 }}>
-                        {listing.price ? formatCurrency(listing.price) : "See listing"}
-                      </div>
-                      <a href={listing.url} target="_blank" rel="noopener noreferrer" style={{ background: underBudget ? "#1E6B3C" : "none", border: "1px solid " + (underBudget ? "#1E6B3C" : "#C8B89A"), color: underBudget ? "#FAF7F2" : "#7A6652", padding: "6px 14px", fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", textDecoration: "none", borderRadius: "2px", fontFamily: "'Georgia', serif", textAlign: "center", fontWeight: underBudget ? 700 : 400 }}>View →</a>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>
         )}
       </div>
 
-      <div style={{ borderTop: "1px solid #D4C4A8", marginTop: 40, padding: "20px 5%", background: "#FAF7F2" }}>
-        <div style={{ maxWidth: 980, margin: "0 auto", width: "100%", boxSizing: "border-box", textAlign: "center" }}>
+      <div style={{ borderTop: "1px solid #D4C4A8", marginTop: 40, padding: "20px 24px", background: "#FAF7F2" }}>
+        <div style={{ maxWidth: 980, margin: "0 auto", boxSizing: "border-box", textAlign: "center" }}>
           <div style={{ height: 1, background: "#8B6914", marginBottom: 16 }} />
-          <div style={{ fontSize: "9px", color: "#A8906A", letterSpacing: "0.2em", textTransform: "uppercase", fontStyle: "italic" }}>Mainspring · Live data from r/WatchExchange · Prices indicative only</div>
+          <div style={{ fontSize: "9px", color: "#A8906A", letterSpacing: "0.2em", textTransform: "uppercase", fontStyle: "italic" }}>Mainspring · Live data from r/WatchExchange · Listings refresh hourly</div>
         </div>
       </div>
       <div style={{ height: 1, background: "#8B6914" }} />
