@@ -4,58 +4,44 @@ const supabaseUrl = Deno.env.get('SUPABASE_URL')!
 const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const supabase = createClient(supabaseUrl, supabaseKey)
 
-async function fetchListings() {
-  const response = await fetch(
-    'https://www.reddit.com/r/Watchexchange/new.json?limit=25',
-    { headers: { 'User-Agent': 'Mainspring/1.0' } }
-  )
-  const data = await response.json()
-  const posts = data.data.children
+Deno.serve(async (req) => {
+  try {
+    const body = await req.json()
+    const items = body.items || []
 
-  for (const post of posts) {
-    const p = post.data
-    if (!p.title.includes('[WTS]') && !p.title.includes('[WTS/WTT]')) continue
-    if (p.link_flair_css_class === 'sold') continue
+    console.log(`Received ${items.length} items from Apify`)
 
-    // Fetch comments to get price
-    let price = null
-    try {
-      const commentsRes = await fetch(
-        `https://www.reddit.com/r/Watchexchange/comments/${p.id}.json?limit=5`,
-        { headers: { 'User-Agent': 'Mainspring/1.0' } }
-      )
-      const commentsData = await commentsRes.json()
-      const comments = commentsData[1]?.data?.children || []
-      for (const comment of comments) {
-        const body = comment.data?.body || ''
-        const match = body.match(/\$[\d,]+/)
-        if (match) {
-          price = Number(match[0].replace(/[$,]/g, ''))
-          break
-        }
+    for (const item of items) {
+      if (!item.title) continue
+      if (!item.title.includes('[WTS]') && !item.title.includes('[WTS/WTT]')) continue
+
+      // Try to extract price from title
+      let price = null
+      const match = item.title.match(/\$[\d,]+/)
+      if (match) {
+        price = Number(match[0].replace(/[$,]/g, ''))
       }
-    } catch (e) {
-      console.log('Error fetching comments:', e)
+
+      const id = item.permalink.split('/comments/')[1]?.split('/')[0]
+      if (!id) continue
+
+      const listing = {
+        id,
+        title: item.title.replace('[WTS]', '').replace('[WTS/WTT]', '').trim(),
+        price,
+        seller: item.author,
+        url: item.permalink,
+        source: 'reddit',
+        sold: false,
+        posted_at: item.created_utc_iso,
+      }
+
+      await supabase.from('listings').upsert(listing, { onConflict: 'id' })
     }
 
-    const listing = {
-      id: p.id,
-      title: p.title.replace('[WTS]', '').replace('[WTS/WTT]', '').trim(),
-      price,
-      seller: p.author,
-      url: `https://reddit.com${p.permalink}`,
-      source: 'reddit',
-      sold: false,
-      posted_at: new Date(p.created_utc * 1000).toISOString(),
-    }
-
-    await supabase.from('listings').upsert(listing, { onConflict: 'id' })
+    return new Response('OK', { status: 200 })
+  } catch (e) {
+    console.log('Error:', e.message)
+    return new Response('Error: ' + e.message, { status: 500 })
   }
-
-  console.log(`Processed ${posts.length} posts`)
-}
-
-Deno.serve(async () => {
-  await fetchListings()
-  return new Response('OK', { status: 200 })
 })

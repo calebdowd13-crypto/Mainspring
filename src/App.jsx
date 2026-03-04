@@ -76,7 +76,7 @@ function AuthScreen() {
             </div>
             {error && <div style={{ color: "#922B21", fontSize: "12px", marginBottom: 12, fontStyle: "italic" }}>{error}</div>}
             {message && <div style={{ color: "#1E6B3C", fontSize: "12px", marginBottom: 12, fontStyle: "italic" }}>{message}</div>}
-            <button onClick={handleSubmit} disabled={loading} style={{ ...btnPrimary, width: "100%", marginBottom: 12 }}>
+            <button onClick={handleSubmit} disabled={loading} style={{ ...btnPrimary, width: "100%", marginBottom: 12, opacity: loading ? 0.6 : 1 }}>
               {loading ? "Please wait…" : mode === "login" ? "Sign In" : "Create Account"}
             </button>
             <div style={{ textAlign: "center", fontSize: "11px", color: "#A8906A", fontStyle: "italic" }}>
@@ -179,13 +179,12 @@ export default function App() {
   if (loading) return <div style={{ minHeight: "100vh", background: "#F5F0E8", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Georgia', serif", color: "#A8906A", fontStyle: "italic" }}>Loading…</div>;
   if (!session) return <AuthScreen />;
 
-  return (
-    <div style={{ minHeight: "100vh", background: "#F5F0E8", color: "#2C1810", fontFamily: "'Georgia', 'Times New Roman', serif" }}>
+  return (<div style={{ minHeight: "100vh", width: "100vw", background: "#F5F0E8", color: "#2C1810", fontFamily: "'Georgia', 'Times New Roman', serif", overflowX: "hidden" }}>
       <div style={{ height: 4, background: "#2C1810" }} />
       <div style={{ height: 1, background: "#8B6914" }} />
 
-      <div style={{ background: "#FAF7F2", borderBottom: "1px solid #D4C4A8", padding: "28px 40px 0" }}>
-        <div style={{ maxWidth: 980, margin: "0 auto" }}>
+\<div style={{ background: "#FAF7F2", borderBottom: "1px solid #D4C4A8" }}>
+        <div style={{ maxWidth: 980, margin: "0 auto", width: "100%", boxSizing: "border-box", padding: "28px 24px 0" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
             <div style={{ display: "flex", alignItems: "baseline", gap: 14 }}>
               <h1 style={{ margin: 0, fontSize: "32px", fontWeight: 400, letterSpacing: "0.18em", textTransform: "uppercase", color: "#2C1810", fontStyle: "italic" }}>Mainspring</h1>
@@ -204,7 +203,7 @@ export default function App() {
         </div>
       </div>
 
-      <div style={{ maxWidth: 980, margin: "0 auto", padding: "36px 40px" }}>
+      <div style={{ maxWidth: 980, margin: "0 auto", padding: "36px 24px", width: "100%", boxSizing: "border-box" }}>
 
         {tab === "portfolio" && (
           <div>
@@ -383,8 +382,8 @@ export default function App() {
         )}
       </div>
 
-      <div style={{ borderTop: "1px solid #D4C4A8", marginTop: 40, padding: "20px 40px", background: "#FAF7F2" }}>
-        <div style={{ maxWidth: 980, margin: "0 auto", textAlign: "center" }}>
+      <div style={{ borderTop: "1px solid #D4C4A8", marginTop: 40, padding: "20px 5%", background: "#FAF7F2" }}>
+        <div style={{ maxWidth: 980, margin: "0 auto", width: "100%", boxSizing: "border-box", textAlign: "center" }}>
           <div style={{ height: 1, background: "#8B6914", marginBottom: 16 }} />
           <div style={{ fontSize: "9px", color: "#A8906A", letterSpacing: "0.2em", textTransform: "uppercase", fontStyle: "italic" }}>Mainspring · Live data from r/WatchExchange · Prices indicative only</div>
         </div>
