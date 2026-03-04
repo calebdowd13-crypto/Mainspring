@@ -7,7 +7,7 @@ const sourceStyles = {
 };
 
 function SourceBadge({ source }) {
-  const s = sourceStyles[source];
+  const s = sourceStyles[source] || sourceStyles.reddit;
   return (
     <span style={{ background: s.bg, color: "#FAF7F2", fontSize: "9px", fontWeight: 700, padding: "3px 8px", borderRadius: "2px", letterSpacing: "0.08em", textTransform: "uppercase", fontFamily: "'Georgia', serif" }}>{s.label}</span>
   );
@@ -33,7 +33,7 @@ const btnPrimary = { background: "#2C1810", border: "none", color: "#FAF7F2", pa
 const btnSecondary = { background: "none", border: "1px solid #C8B89A", color: "#7A6652", padding: "9px 22px", cursor: "pointer", fontSize: "10px", letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: "'Georgia', serif", borderRadius: "2px" };
 const btnOutlineGold = { background: "none", border: "1px solid #8B6914", color: "#8B6914", padding: "9px 22px", cursor: "pointer", fontSize: "10px", letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: "'Georgia', serif", borderRadius: "2px" };
 
-function AuthScreen({ onAuth }) {
+function AuthScreen() {
   const [mode, setMode] = useState("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -99,21 +99,13 @@ export default function App() {
   const [tab, setTab] = useState("portfolio");
   const [portfolio, setPortfolio] = useState([]);
   const [wishlist, setWishlist] = useState([]);
+  const [realListings, setRealListings] = useState([]);
   const [showAddWatch, setShowAddWatch] = useState(false);
   const [showAddWishlist, setShowAddWishlist] = useState(false);
   const [newWatch, setNewWatch] = useState({ brand: "", model: "", ref: "", year: "", purchase_price: "", current_price: "", condition: "Excellent", papers: false });
   const [newWish, setNewWish] = useState({ brand: "", model: "", ref: "", max_price: "", alerts: true });
   const [listingFilter, setListingFilter] = useState("all");
   const [loading, setLoading] = useState(true);
-
-  const MOCK_LISTINGS = [
-    { id: 1, source: "reddit", title: "Rolex Submariner 126610LN - Full Set", price: 13200, url: "#", age: "2 min ago", seller: "u/watchflip_nyc" },
-    { id: 2, source: "chrono24", title: "Rolex Submariner 126610LN Box & Papers", price: 13800, url: "#", age: "1 hr ago", seller: "Dealer — Crown & Caliber" },
-    { id: 3, source: "reddit", title: "Sub Date 126610LN, worn twice", price: 12900, url: "#", age: "4 hr ago", seller: "u/alpine_collector" },
-    { id: 4, source: "chrono24", title: "Rolex GMT Master II 126710BLNR Pepsi", price: 17400, url: "#", age: "30 min ago", seller: "Dealer — WatchBox" },
-    { id: 5, source: "reddit", title: "GMT-Master II Pepsi full set 2023", price: 16800, url: "#", age: "6 hr ago", seller: "u/rolextrader_pdx" },
-    { id: 6, source: "chrono24", title: "AP Royal Oak 15500ST Blue Dial", price: 28900, url: "#", age: "2 hr ago", seller: "Dealer — Bob's Watches" },
-  ];
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -130,6 +122,7 @@ export default function App() {
     if (session) {
       fetchPortfolio();
       fetchWishlist();
+      fetchRealListings();
     }
   }, [session]);
 
@@ -141,6 +134,15 @@ export default function App() {
   async function fetchWishlist() {
     const { data } = await supabase.from("wishlist").select("*").order("created_at", { ascending: true });
     if (data) setWishlist(data);
+  }
+
+  async function fetchRealListings() {
+    const { data } = await supabase
+      .from("listings")
+      .select("*")
+      .order("posted_at", { ascending: false })
+      .limit(50);
+    if (data) setRealListings(data);
   }
 
   async function addWatch() {
@@ -163,8 +165,9 @@ export default function App() {
   const totalCurrent = portfolio.reduce((s, w) => s + Number(w.current_price), 0);
   const totalGain = totalCurrent - totalPurchase;
   const totalGainPct = totalPurchase > 0 ? ((totalGain / totalPurchase) * 100).toFixed(1) : "0.0";
-  const filteredListings = listingFilter === "all" ? MOCK_LISTINGS : MOCK_LISTINGS.filter(l => l.source === listingFilter);
-  const matchedListings = MOCK_LISTINGS.filter(l => wishlist.some(w => l.title.toLowerCase().includes(w.model.toLowerCase())));
+  const allListings = realListings.length > 0 ? realListings : [];
+  const filteredListings = listingFilter === "all" ? allListings : allListings.filter(l => l.source === listingFilter);
+  const matchedListings = allListings.filter(l => wishlist.some(w => l.title.toLowerCase().includes(w.model.toLowerCase())));
 
   const tabs = [
     { id: "portfolio", label: "Portfolio" },
@@ -266,7 +269,7 @@ export default function App() {
         {tab === "wishlist" && (
           <div>
             <p style={{ color: "#7A6652", fontSize: "13px", marginTop: 0, marginBottom: 24, fontStyle: "italic", borderBottom: "1px solid #D4C4A8", paddingBottom: 16 }}>
-              Add the references you're hunting. Mainspring monitors Reddit WatchExchange and Chrono24 continuously and alerts you the moment a match appears.
+              Add the references you're hunting. Mainspring monitors Reddit WatchExchange continuously and alerts you the moment a match appears.
             </p>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 140px 140px", gap: 16, padding: "8px 20px", borderTop: "1px solid #2C1810", borderBottom: "1px solid #D4C4A8", marginBottom: 2 }}>
               {["Reference", "Max Budget", "Live Matches"].map(h => (
@@ -277,7 +280,7 @@ export default function App() {
             {wishlist.length === 0 && <div style={{ color: "#A8906A", fontStyle: "italic", fontSize: "14px", padding: "40px 20px" }}>No watches on your wishlist yet.</div>}
 
             {wishlist.map((item, i) => {
-              const matches = MOCK_LISTINGS.filter(l => l.title.toLowerCase().includes(item.model.toLowerCase()));
+              const matches = allListings.filter(l => l.title.toLowerCase().includes(item.model.toLowerCase()));
               return (
                 <div key={item.id} style={{ background: i % 2 === 0 ? "#FAF7F2" : "#F5F0E8", borderBottom: "1px solid #E8DFD0", padding: "16px 20px", display: "grid", gridTemplateColumns: "1fr 140px 140px", gap: 16, alignItems: "center" }}>
                   <div>
@@ -316,20 +319,25 @@ export default function App() {
         {tab === "listings" && (
           <div>
             <div style={{ display: "flex", gap: 8, marginBottom: 24 }}>
-              {[["all", "All Sources"], ["reddit", "r/WatchExchange"], ["chrono24", "Chrono24"]].map(([val, label]) => (
+              {[["all", "All Sources"], ["reddit", "r/WatchExchange"]].map(([val, label]) => (
                 <button key={val} onClick={() => setListingFilter(val)} style={{ background: listingFilter === val ? "#2C1810" : "none", border: "1px solid " + (listingFilter === val ? "#2C1810" : "#C8B89A"), color: listingFilter === val ? "#FAF7F2" : "#7A6652", padding: "7px 18px", cursor: "pointer", fontSize: "10px", letterSpacing: "0.12em", textTransform: "uppercase", fontFamily: "'Georgia', serif", borderRadius: "2px" }}>{label}</button>
               ))}
             </div>
-            <div style={{ borderTop: "1px solid #2C1810" }}>
+            {filteredListings.length === 0 && (
+              <div style={{ color: "#A8906A", fontStyle: "italic", fontSize: "14px", padding: "40px 20px" }}>No listings yet.</div>
+            )}
+            <div style={{ borderTop: filteredListings.length > 0 ? "1px solid #2C1810" : "none" }}>
               {filteredListings.map((listing, i) => (
                 <div key={listing.id} style={{ background: i % 2 === 0 ? "#FAF7F2" : "#F5F0E8", borderBottom: "1px solid #E8DFD0", padding: "14px 20px", display: "grid", gridTemplateColumns: "auto 1fr 120px 80px", gap: 16, alignItems: "center" }}>
                   <SourceBadge source={listing.source} />
                   <div>
                     <div style={{ fontSize: "14px", color: "#2C1810", marginBottom: 3 }}>{listing.title}</div>
-                    <div style={{ fontSize: "10px", color: "#A8906A", fontStyle: "italic" }}>{listing.seller} · {listing.age}</div>
+                    <div style={{ fontSize: "10px", color: "#A8906A", fontStyle: "italic" }}>u/{listing.seller} · {new Date(listing.posted_at).toLocaleDateString()}</div>
                   </div>
-                  <div style={{ fontSize: "15px", color: "#2C1810", fontStyle: "italic" }}>{formatCurrency(listing.price)}</div>
-                  <a href={listing.url} style={{ background: "none", border: "1px solid #C8B89A", color: "#7A6652", padding: "5px 12px", fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", textDecoration: "none", borderRadius: "2px", fontFamily: "'Georgia', serif", textAlign: "center" }}>View →</a>
+                  <div style={{ fontSize: "15px", color: "#2C1810", fontStyle: "italic" }}>
+                    {listing.price ? formatCurrency(listing.price) : "See listing"}
+                  </div>
+                  <a href={listing.url} target="_blank" rel="noopener noreferrer" style={{ background: "none", border: "1px solid #C8B89A", color: "#7A6652", padding: "5px 12px", fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", textDecoration: "none", borderRadius: "2px", fontFamily: "'Georgia', serif", textAlign: "center" }}>View →</a>
                 </div>
               ))}
             </div>
@@ -347,19 +355,25 @@ export default function App() {
               <div style={{ borderTop: "1px solid #2C1810" }}>
                 {matchedListings.map((listing, i) => {
                   const wishItem = wishlist.find(w => listing.title.toLowerCase().includes(w.model.toLowerCase()));
-                  const underBudget = wishItem && listing.price <= wishItem.max_price;
+                  const underBudget = wishItem && listing.price && listing.price <= wishItem.max_price;
                   return (
                     <div key={listing.id} style={{ background: underBudget ? "#EEF7F0" : (i % 2 === 0 ? "#FAF7F2" : "#F5F0E8"), borderBottom: "1px solid #E8DFD0", borderLeft: underBudget ? "3px solid #1E6B3C" : "3px solid transparent", padding: "14px 20px", display: "grid", gridTemplateColumns: "auto 1fr 140px 100px", gap: 16, alignItems: "center" }}>
                       <SourceBadge source={listing.source} />
                       <div>
                         <div style={{ fontSize: "14px", color: "#2C1810", marginBottom: 3 }}>{listing.title}</div>
                         <div style={{ fontSize: "10px", color: "#A8906A", fontStyle: "italic" }}>
-                          {listing.seller} · {listing.age}
-                          {wishItem && <span style={{ color: underBudget ? "#1E6B3C" : "#922B21", marginLeft: 10 }}>{underBudget ? `✓ Within budget (max ${formatCurrency(wishItem.max_price)})` : `✗ Over budget (max ${formatCurrency(wishItem.max_price)})`}</span>}
+                          u/{listing.seller} · {new Date(listing.posted_at).toLocaleDateString()}
+                          {wishItem && listing.price && (
+                            <span style={{ color: underBudget ? "#1E6B3C" : "#922B21", marginLeft: 10 }}>
+                              {underBudget ? `✓ Within budget (max ${formatCurrency(wishItem.max_price)})` : `✗ Over budget (max ${formatCurrency(wishItem.max_price)})`}
+                            </span>
+                          )}
                         </div>
                       </div>
-                      <div style={{ fontSize: "15px", color: underBudget ? "#1E6B3C" : "#2C1810", fontStyle: "italic", fontWeight: underBudget ? 600 : 400 }}>{formatCurrency(listing.price)}</div>
-                      <a href={listing.url} style={{ background: underBudget ? "#1E6B3C" : "none", border: "1px solid " + (underBudget ? "#1E6B3C" : "#C8B89A"), color: underBudget ? "#FAF7F2" : "#7A6652", padding: "6px 14px", fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", textDecoration: "none", borderRadius: "2px", fontFamily: "'Georgia', serif", textAlign: "center", fontWeight: underBudget ? 700 : 400 }}>View →</a>
+                      <div style={{ fontSize: "15px", color: underBudget ? "#1E6B3C" : "#2C1810", fontStyle: "italic", fontWeight: underBudget ? 600 : 400 }}>
+                        {listing.price ? formatCurrency(listing.price) : "See listing"}
+                      </div>
+                      <a href={listing.url} target="_blank" rel="noopener noreferrer" style={{ background: underBudget ? "#1E6B3C" : "none", border: "1px solid " + (underBudget ? "#1E6B3C" : "#C8B89A"), color: underBudget ? "#FAF7F2" : "#7A6652", padding: "6px 14px", fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", textDecoration: "none", borderRadius: "2px", fontFamily: "'Georgia', serif", textAlign: "center", fontWeight: underBudget ? 700 : 400 }}>View →</a>
                     </div>
                   );
                 })}
@@ -372,7 +386,7 @@ export default function App() {
       <div style={{ borderTop: "1px solid #D4C4A8", marginTop: 40, padding: "20px 40px", background: "#FAF7F2" }}>
         <div style={{ maxWidth: 980, margin: "0 auto", textAlign: "center" }}>
           <div style={{ height: 1, background: "#8B6914", marginBottom: 16 }} />
-          <div style={{ fontSize: "9px", color: "#A8906A", letterSpacing: "0.2em", textTransform: "uppercase", fontStyle: "italic" }}>Mainspring · Market data refreshed every 90 seconds · Prices indicative only</div>
+          <div style={{ fontSize: "9px", color: "#A8906A", letterSpacing: "0.2em", textTransform: "uppercase", fontStyle: "italic" }}>Mainspring · Live data from r/WatchExchange · Prices indicative only</div>
         </div>
       </div>
       <div style={{ height: 1, background: "#8B6914" }} />
